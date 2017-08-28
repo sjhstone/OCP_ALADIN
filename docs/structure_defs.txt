@@ -1,0 +1,40 @@
+ocp
+ocp.var
+ocp.var.x
+ocp.var.x.n
+ocp.var.x.x0
+ocp.var.x.lb
+ocp.var.x.ub
+ocp.var.x.ss
+ocp.var.u
+ocp.var.u.n
+ocp.var.u.lb
+ocp.var.u.ub
+ocp.var.u.ss
+ocp.sys
+ocp.sys.type
+ocp.sys.dx
+ocp.goal *
+ocp.goal.stgc *
+ocp.goal.tmnc *
+ocp.subs
+ocp.subs.m
+ocp.subs.N
+ocp.subs.thrz
+ocp.subs.subvardim
+
+aladinpara
+aladinpara.dnlp
+aladinpara.dnlp.rho
+aladinpara.dnlp.Sigma
+aladinpara.cqp
+aladinpara.cqp.mu
+
+aladincfg
+aladincfg.ig
+aladincfg.ig.x
+aladincfg.ig.lambda
+aladincfg.cqp
+aladincfg.cqp.solver
+aladincfg.tol
+aladincfg.MAX_ITER
