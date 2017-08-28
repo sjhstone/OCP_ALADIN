@@ -1,4 +1,4 @@
-function [ cqo ] = coupled_qp( subvar, ip, apar, acfg, misc )
+function [ cqo ] = coupled_qp( at_iter, subvar, ip, apar, acfg, misc )
     
     import casadi.*;
     
@@ -13,20 +13,24 @@ function [ cqo ] = coupled_qp( subvar, ip, apar, acfg, misc )
         
     switch acfg.cqp.solver
         case 'ipopt'
-            disp(['[OCP_ALADIN] ', 'Solving coupled QP using ' acfg.cqp.solver]);
+            disp(['[OCP_ALADIN] ', 'Solving coupled QP using ',...
+                acfg.cqp.solver, newline,...
+                '(@ iteration ', num2str(at_iter) ]);
             
             cCi = [];
             cyi = [];
             Hi = [];
             gi = [];
+            Ai = [];
             for subi=1:ip.subs.N
                 cCi = blkdiag(cCi, subvar{subi}.Ci);
                 cyi = vertcat(cyi, subvar{subi}.yi);
                 Hi = blkdiag(Hi, subvar{subi}.Hi);
                 gi = vertcat(gi, subvar{subi}.gi);
+                Ai = horzcat(Ai, subvar{subi}.Ai);
             end
             
-            cA = horzcat(misc.A{1}, repmat(misc.A{2}, 1, ip.subs.N-2), misc.A{3});
+            cA = Ai;
             cb = cA*cyi;
             
             cextA = [cA; cCi];
@@ -48,7 +52,7 @@ function [ cqo ] = coupled_qp( subvar, ip, apar, acfg, misc )
             solver = nlpsol('solver', 'ipopt', optimization_problem);
             
             solution = solver(...
-                'x0', zeros(ip.subs.subvardim*ip.subs.N, 1),...
+                'x0', zeros(size(x)),...
                 'lbg', lbg,...
                 'ubg', ubg);
             
@@ -57,6 +61,7 @@ function [ cqo ] = coupled_qp( subvar, ip, apar, acfg, misc )
                 'lambda_QP', full(solution.lam_g)...
                 );
             
+            disp('HERE');
         case 'qpoases'
             error(['[OCP_ALADIN] ', 'NotImplementedException: ' acfg.cqp.solver]);  
         otherwise

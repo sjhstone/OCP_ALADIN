@@ -21,6 +21,7 @@ classdef OCP
             iOCP.subs = subs;
             
             iOCP.subs.subvardim = subs.m * (var.x.n + var.u.n) + var.x.n;
+            iOCP.var.lambda.n = (subs.N-1)*var.x.n;
         end
         
         function x0 = generate_initial_guess(object)

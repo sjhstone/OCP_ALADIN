@@ -6,25 +6,18 @@ function [oao] = OCP_ALADIN_interface( ip, apar, acfg, misc )
     
     import casadi.*;
     
-    %% construct Ai
+    %% ASSISTING VARIABLES
     
-    A = cell(3, 1);
     x = cell(ip.subs.N, 1);
     y = cell(ip.subs.N, 1);
     
-    A{1} = [...
-        zeros(ip.var.x.n, ip.subs.m*(ip.var.x.n+ip.var.u.n)),...
-        eye(ip.var.x.n),...
-    ];
-    A{2} = [...
-        -1 * eye(ip.var.x.n),...
-        zeros(ip.var.x.n, (ip.subs.m-1)*(ip.var.x.n+ip.var.u.n)+ip.var.u.n),...
-        eye(ip.var.x.n)...
-    ];
-    A{3} = [...
-        -1 * eye(ip.var.x.n),...
-        zeros(ip.var.x.n, ip.subs.m*(ip.var.x.n+ip.var.u.n))...
-    ];
+    % wastes space here
+    A = [...
+        zeros(        (ip.subs.N-2)*ip.var.x.n, ip.subs.subvardim        );...
+        -1*eye(ip.var.x.n) zeros(ip.var.x.n, ip.subs.subvardim-ip.var.x.n);...
+        zeros(ip.var.x.n, ip.subs.subvardim-ip.var.x.n)    eye(ip.var.x.n);...
+        zeros(        (ip.subs.N-2)*ip.var.x.n, ip.subs.subvardim        ) ...
+        ];
     
     misc.A = A;
     
@@ -41,7 +34,10 @@ function [oao] = OCP_ALADIN_interface( ip, apar, acfg, misc )
         xi_trj{subi}(:,1) = initial_xi;
     end
     
-    lambda_trj = zeros(ip.var.x.n, acfg.MAX_ITER);
+    lambda_trj = zeros( ip.var.lambda.n , acfg.MAX_ITER );
+    lambda_trj(:,1) = acfg.ig.lambda;
+    
+    figure(1)
     
     %% ALADIN MAIN LOOP
     for ITER = 1:acfg.MAX_ITER
@@ -57,30 +53,31 @@ function [oao] = OCP_ALADIN_interface( ip, apar, acfg, misc )
         %% CHECK TERMINATION CONDITION
         
         
-        
         %% COUPLED QP
-        qpout = coupled_qp(subvar, ip, apar, acfg, misc);
+        qpout = coupled_qp(ITER, subvar, ip, apar, acfg, misc);
         
         %% ALPHA SEARCH
         alpha = [1;1;1];
         
         %% UPDATE X
         for subi = 1:ip.subs.N
-            xi_trj{subi}(:,ITER+1) = ...
+            updated_x = xi_trj{subi}(:,ITER) + ...
                 alpha(1) * ( subvar{subi}.yi - xi_trj{subi}(:,ITER) ) + ...
-                alpha(2) * qpout.delta_y(...
-                1+(subi-1)*ip.subs.subvardim : subi*ip.subs.subvardim ,1);
+                alpha(2) * qpout.delta_y(1+(subi-1)*ip.subs.subvardim : subi*ip.subs.subvardim ,1);
+            xi_trj{subi}(:,ITER+1) = updated_x;...
+                
         end
         
         %% UPDATE LAMBDA
         lambda_trj(:,ITER+1) = lambda_trj(:,ITER) + ...
-            alpha(3)*(qpout.lambda_QP(1:ip.var.x.n) - lambda_trj(:,ITER));
+            alpha(3)*(qpout.lambda_QP(1:ip.var.lambda.n) - lambda_trj(:,ITER));
     end
     
     oao = struct(...
         'x', xi_trj,...
         'lambda', lambda_trj...
         );
+    
 
 end
 

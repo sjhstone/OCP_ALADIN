@@ -36,30 +36,27 @@ function [ dno ] = decoupled_nlp( xi, lambda, subi, ip, par, misc )
         x_end = F_now.X;
         f = f + F_now.Z;
         
-        x_now = MX.sym( ['x' num2str( itv )], [ip.var.x.n, 1] );
-        x = { x{:}, u_now, x_now };
-        y = [  y  ; u_now; x_now ];
+        y_now = MX.sym( ['x' num2str( itv )], [ip.var.x.n, 1] );
+        x = { x{:}, u_now, y_now };
+        y = [  y  ; u_now; y_now ];
         lbx = [ lbx; ip.var.u.lb; ip.var.x.lb ];
         ubx = [ ubx; ip.var.u.ub; ip.var.x.ub ];
         
-        g = { g{:}, x_end-x_now };
-        h = [  h  ; x_end-x_now ];
+        g = { g{:}, x_end-y_now };
+        h = [  h  ; x_end-y_now ];
         lbg = [lbg; zeros(ip.var.x.n, 1)];
         ubg = [ubg; zeros(ip.var.x.n, 1)];
     end
     
     if subi == ip.subs.N    % last subproblem
-        tmnc = ip.goal.tmnc('x', x_now);
+        tmnc = ip.goal.tmnc('x', y_now);
         f = f + tmnc.tmnc;
     end
     
-    if subi == 1
-        Ai = misc.A{1};
-    elseif subi == ip.subs.N
-        Ai = misc.A{3};
-    else
-        Ai = misc.A{2};
-    end
+    startat = (ip.subs.N - subi)*ip.var.x.n + 1;
+    Ai = misc.A(...
+        startat : startat+(ip.subs.N-1)*ip.var.x.n-1 ,...
+        :);
     
     ALADIN_f = f + lambda' * Ai * y ...
                  + 1/2 * par.rho * (y-xi)' * par.Sigma * (y-xi);
@@ -72,11 +69,16 @@ function [ dno ] = decoupled_nlp( xi, lambda, subi, ip, par, misc )
     
     solver = nlpsol('solver', 'ipopt', optimization_problem);
     
+%     solution = solver(...
+%         'x0', zeros(ip.subs.subvardim, 1), ...
+%         'lbx', lbx, 'ubx', ubx,  ...
+%         'lbg', lbg, 'ubg', ubg);
+    xhat = [repmat([ip.var.x.ss; ip.var.u.ss], ip.subs.m, 1); ip.var.x.ss];
     solution = solver(...
-        'x0', zeros(ip.subs.subvardim, 1), ...
+        'x0', xhat, ...
         'lbx', lbx, 'ubx', ubx,  ...
-        'lbg', lbg, 'ubg', ubg);
-    
+        'lbg', lbg, 'ubg', ubg);    
+
     yi     = full(solution.x    );
     kappai = full(solution.lam_g);
     
@@ -96,6 +98,7 @@ function [ dno ] = decoupled_nlp( xi, lambda, subi, ip, par, misc )
     Hi = full(Hi.H);
     
     dno = struct(...
+        'Ai'    , Ai,...
         'yi'    , yi,...
         'kappai', kappai,...
         'gi'    , gi,...
