@@ -10,3 +10,12 @@
 
 * CasADi
 * MATLAB
+
+## Collaborating
+
+Version-controlled source code of `OCP_ALADIN` is hosted at 
+https://github.com/sjhstone/OCP_ALADIN.
+However, it is a private repository at present.
+
+Please send email with GitHub account information in message body to
+mailto:sjhstone@live.com to ask for access.
