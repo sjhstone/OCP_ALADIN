@@ -26,18 +26,29 @@ function oao = OCP_ALADIN_interface( ip, apar, acfg, misc )
         misc.A{subi} = Ai;
         misc.cA = horzcat(misc.cA, Ai);
     end
-    clear AClipH Ai
+    clear A AClipH Ai
     
     subvar = cell(ip.subs.N, 1);
 
     xi_trj = cell(ip.subs.N, 1);
     xi_trj(:) = {nan(ip.subs.subvardim, acfg.MAX_ITER)};
+    if isfield(acfg.ig, 'x')
+        igx = acfg.ig.x;
+    else
+        error('No initial guess of x is present');
+    end
+    
+    if isfield(acfg.ig, 'lambda')
+        iglambda = acfg.ig.lambda;
+    else
+        iglambda = ones(ip.var.lambda.n, 1);
+    end
     for subi = 1:ip.subs.N
         xi_trj{subi}(:,1) = acfg.ig.x;
     end
     
-    lambda_trj = zeros( ip.var.lambda.n , acfg.MAX_ITER );
-    lambda_trj(:,1) = acfg.ig.lambda;
+    lambda_trj = nan( ip.var.lambda.n , acfg.MAX_ITER );
+    lambda_trj(:,1) = iglambda;
     
     %% ALADIN MAIN LOOP
     for ITER = 1:acfg.MAX_ITER
@@ -48,7 +59,7 @@ function oao = OCP_ALADIN_interface( ip, apar, acfg, misc )
             [subvar{subi}] = decoupled_nlp( ITER, ...
                 xi_trj{subi}(:,ITER), ...
                 lambda_trj(:,ITER),   ...
-                subi, ip, apar.dnlp, misc...
+                subi, ip, apar.dnlp, acfg, misc...
             );
         end
         
@@ -57,20 +68,26 @@ function oao = OCP_ALADIN_interface( ip, apar, acfg, misc )
         misc.cyi = [];
         misc.Hi = [];
         misc.gi = [];
+        misc.cqpeCi = [];
+        misc.cqpebi = [];
         for subi=1:ip.subs.N
             misc.cCi = blkdiag(misc.cCi, subvar{subi}.Ci);
             misc.cyi = vertcat(misc.cyi, subvar{subi}.yi);
             misc.Hi = blkdiag(misc.Hi, subvar{subi}.Hi);
             misc.gi = vertcat(misc.gi, subvar{subi}.gi);
+            
+            misc.cqpeCi = blkdiag(misc.cqpeCi, subvar{subi}.qpeCi);
+            misc.cqpebi = vertcat(misc.cqpebi, subvar{subi}.qpebi);
         end
         % constraint enforcement check
         satisfy_cec = ...
-            acfg.tol >= sum(abs(misc.cA*misc.cyi));
+            acfg.tol >= norm(misc.cA*misc.cyi, 1);
         % step delta check
         satisfy_sdc = true;
         for subi = 1:ip.subs.N
-            satisfy_sdc = satisfy_sdc && ...
-                acfg.tol >= apar.dnlp.rho * sum(abs(apar.dnlp.Sigma*subvar{subi}.yi - xi_trj{subi}(:,ITER)));
+            step_delta = apar.dnlp.rho * norm(apar.dnlp.Sigma*...
+                    subvar{subi}.yi - xi_trj{subi}(:,ITER), 1);
+            satisfy_sdc = satisfy_sdc && (acfg.tol >= step_delta);
             if satisfy_sdc == false
                 break
             end
@@ -94,7 +111,6 @@ function oao = OCP_ALADIN_interface( ip, apar, acfg, misc )
                 alpha(1) * ( subvar{subi}.yi - xi_trj{subi}(:,ITER) ) + ...
                 alpha(2) * qpout.delta_y(1+(subi-1)*ip.subs.subvardim : subi*ip.subs.subvardim ,1);
             xi_trj{subi}(:,ITER+1) = updated_x;...
-                
         end
         
         %% UPDATE LAMBDA

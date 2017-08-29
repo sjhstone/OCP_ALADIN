@@ -25,8 +25,8 @@ function cqo = coupled_qp( at_iter, subvar, ip, par, acfg, misc )
             % $ \sum_i{A_i y_i} $
             qpcb = misc.cA*misc.cyi;
             
-            cextA = [misc.cA; misc.cCi];
-            cextb = [qpcb; zeros(size(misc.cCi,1), 1)];
+            cextA = [misc.cA; misc.cqpeCi];
+            cextb = [qpcb; misc.cqpebi];
             
             g = {cextA*x + cextb};
             lbg = zeros(size(g{1}));

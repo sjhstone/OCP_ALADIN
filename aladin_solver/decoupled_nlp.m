@@ -1,4 +1,4 @@
-function [ dno ] = decoupled_nlp( at_iter, xi, lambda, subi, ip, par, misc )
+function dno = decoupled_nlp( at_iter, xi, lambda, subi, ip, par, acfg, misc )
 
     import casadi.*;
     
@@ -24,9 +24,14 @@ function [ dno ] = decoupled_nlp( at_iter, xi, lambda, subi, ip, par, misc )
     if subi == 1    % first subproblem, enforce x(0) = x0.
         lbx = [ip.var.x.x0];
         ubx = [ip.var.x.x0];
+        % if first subsystem, enforce del_x(0) = 0
+        qpeCi = [eye(ip.var.x.n) zeros(ip.var.x.n, ip.subs.subvardim-ip.var.x.n)];
+        qpebi = [zeros(ip.var.x.n,1)];
     else
         lbx = [-Inf * ones(ip.var.x.n,1)];
         ubx = [ Inf * ones(ip.var.x.n,1)];
+        qpeCi = [];
+        qpebi = [];
     end
     
     for itv = 1:ip.subs.m
@@ -41,6 +46,8 @@ function [ dno ] = decoupled_nlp( at_iter, xi, lambda, subi, ip, par, misc )
         y = [  y  ; u_now; y_now ];
         lbx = [ lbx; ip.var.u.lb; ip.var.x.lb ];
         ubx = [ ubx; ip.var.u.ub; ip.var.x.ub ];
+%         lbx = [lbx; -Inf*ones(ip.var.u.n,1); -Inf*ones(ip.var.x.n,1)];
+%         ubx = [ubx;  Inf*ones(ip.var.u.n,1);  Inf*ones(ip.var.x.n,1)];
         
         g = { g{:}, x_end-y_now };
         h = [  h  ; x_end-y_now ];
@@ -78,10 +85,21 @@ function [ dno ] = decoupled_nlp( at_iter, xi, lambda, subi, ip, par, misc )
     gi = gi('x', yi);
     gi = full(gi.g);
     
+    % detect active set
     Ci = jacobian(h, y);
     Ci = Function( ['C' num2str(subi)] , {y}, {Ci}, {'x'}, {'C'});
     Ci = Ci('x', yi);
     Ci = full(Ci.C);
+    qpeCi = vertcat(qpeCi, Ci);
+    qpebi = vertcat(qpebi, zeros(size(Ci,1),1));
+
+    % if lam_x is NOT 0, related constraint is active
+    dual_y = full(solution.lam_x);
+    actInC = diag(dual_y);
+    actInC(abs(actInC) <= acfg.dualtol) = 0;
+    actInC = actInC(any(actInC,2),:);
+    qpeCi = vertcat(qpeCi, actInC);
+    qpebi = vertcat(qpebi, zeros(size(actInC,1),1));
     
     Hi = hessian( f + kappai'*h, y );
     Hi = Function('Hi', {y}, {Hi}, {'x'}, {'H'});
@@ -93,7 +111,9 @@ function [ dno ] = decoupled_nlp( at_iter, xi, lambda, subi, ip, par, misc )
         'kappai', kappai,...
         'gi'    , gi,...
         'Ci'    , Ci,...
-        'Hi'    , Hi ...
+        'Hi'    , Hi,...
+        'qpeCi' , qpeCi,...
+        'qpebi' , qpebi ...
     );
 
 end
