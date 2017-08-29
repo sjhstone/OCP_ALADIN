@@ -1,6 +1,6 @@
 classdef OCP
-    %OCP Summary of this class goes here
-    %   Detailed explanation goes here
+    %OCP class that represents an optimal control problem
+    
     properties (Access = private)
         has_steady_state = false;
     end
@@ -21,6 +21,7 @@ classdef OCP
             iOCP.subs = subs;
             
             iOCP.subs.subvardim = subs.m * (var.x.n + var.u.n) + var.x.n;
+            iOCP.subs.total_thrz = subs.m * subs.N * subs.thrz;
             iOCP.var.lambda.n = (subs.N-1)*var.x.n;
         end
         
@@ -31,11 +32,13 @@ classdef OCP
         end
         
         function [] = printinfo_thrz(object)
-            disp(['[OCP_ALADIN] ', 'Time Horizon', newline,...
+            disp(['[OCP_ALADIN] ', 'Time Horizon Confirmation', newline,...
                   'Decoupled into ', num2str(object.subs.N),' subproblems', newline, ...
                   'total: ',...
-                  num2str(object.subs.m * object.subs.N * object.subs.thrz), ' s', newline, ...
+                  num2str(object.subs.total_thrz), ' s', newline, ...
                   ' each: ', num2str(object.subs.m * object.subs.thrz), ' s']);
+            disp(['Press ANY key to continue']);
+            pause;
         end
     end
     

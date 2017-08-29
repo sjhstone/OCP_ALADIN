@@ -118,7 +118,30 @@ function oao = OCP_ALADIN_interface( ip, apar, acfg, misc )
             alpha(3)*(qpout.lambda_QP(1:ip.var.lambda.n) - lambda_trj(:,ITER));
         
         %% PLOT
+        state_var = [];
+        for subi=1:ip.subs.N-1
+            state_var = [state_var; xi_trj{subi}(1:end-ip.var.x.n,ITER+1)];
+        end
+        state_var = [state_var; xi_trj{subi}(:,ITER+1)];
         
+        figure(1)
+        for i=1:ip.var.x.n
+            subplot(ip.var.x.n,1,i)
+            plot(0:ip.subs.thrz:ip.subs.total_thrz, state_var(i:(ip.var.x.n+ip.var.u.n):end,1));
+        end
+        
+        figure(2)
+        for i=1:ip.var.u.n
+            subplot(ip.var.u.n,1,i)
+            plot(ip.subs.thrz:ip.subs.thrz:ip.subs.total_thrz, state_var(ip.var.x.n+i:(ip.var.x.n+ip.var.u.n):end,1));
+        end
+        
+    end
+    
+    if ITER == acfg.MAX_ITER
+        disp(['[OCP_ALADIN] ',...
+                'Reaching MAX_ITER, ', acfg.MAX_ITER, ' , EXIT' ]...
+            );
     end
     
     oao = struct(...
