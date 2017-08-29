@@ -1,4 +1,8 @@
-function [ cqo ] = coupled_qp( at_iter, subvar, ip, apar, acfg, misc )
+function cqo = coupled_qp( at_iter, subvar, ip, par, acfg, misc )
+
+    disp(['[OCP_ALADIN] ',...
+        'OCP_ALADIN hasn''t implemented slackness variable' ]...
+    );
     
     import casadi.*;
     
@@ -15,57 +19,45 @@ function [ cqo ] = coupled_qp( at_iter, subvar, ip, apar, acfg, misc )
         case 'ipopt'
             disp(['[OCP_ALADIN] ', 'Solving coupled QP using ',...
                 acfg.cqp.solver, newline,...
-                '(@ iteration ', num2str(at_iter) ]);
+                '(@ iteration ', num2str(at_iter), ')' ]);
             
-            cCi = [];
-            cyi = [];
-            Hi = [];
-            gi = [];
-            Ai = [];
-            for subi=1:ip.subs.N
-                cCi = blkdiag(cCi, subvar{subi}.Ci);
-                cyi = vertcat(cyi, subvar{subi}.yi);
-                Hi = blkdiag(Hi, subvar{subi}.Hi);
-                gi = vertcat(gi, subvar{subi}.gi);
-                Ai = horzcat(Ai, subvar{subi}.Ai);
-            end
+            % QP constraint b,
+            % $ \sum_i{A_i y_i} $
+            qpcb = misc.cA*misc.cyi;
             
-            cA = Ai;
-            cb = cA*cyi;
-            
-            cextA = [cA; cCi];
-            cextb = [cb; zeros(size(cCi,1), 1)];
+            cextA = [misc.cA; misc.cCi];
+            cextb = [qpcb; zeros(size(misc.cCi,1), 1)];
             
             g = {cextA*x + cextb};
             lbg = zeros(size(g{1}));
             ubg = zeros(size(g{1}));
             
-            f = 1/2 * x'*Hi*x + gi'*x;
+            f = 1/2 * x'*misc.Hi*x + misc.gi'*x;
             ALADIN_f = f;
             
             optimization_problem = struct(...
                 'f', ALADIN_f,...
                 'x', vertcat(w{:}),...
                 'g', vertcat(g{:})...
-                );
+            );
             
             solver = nlpsol('solver', 'ipopt', optimization_problem);
             
             solution = solver(...
                 'x0', zeros(size(x)),...
                 'lbg', lbg,...
-                'ubg', ubg);
+                'ubg', ubg ...
+            );
             
             cqo = struct(...
                 'delta_y'  , full(solution.x),...
                 'lambda_QP', full(solution.lam_g)...
-                );
-            
-            disp('HERE');
+            );
         case 'qpoases'
             error(['[OCP_ALADIN] ', 'NotImplementedException: ' acfg.cqp.solver]);  
         otherwise
-            error(['[OCP_ALADIN] ', 'InvalidSolverSettingException: ' acfg.cqp.solver])
+            error(['[OCP_ALADIN] ', 'InvalidInputException: ' acfg.cqp.solver])
     end
+    
 end
 
